@@ -17,7 +17,7 @@ import requests
 # Public client_id of an established open-source Spotify client.
 # Find one in e.g. https://github.com/hrkfdn/ncspot or
 # https://github.com/aome510/spotify-player (search "client_id").
-SPOTIFY_CLIENT_ID = "65b708073fc0480ea92a077233ca87bd"
+SPOTIFY_CLIENT_ID = "d420a117a32841c2b3474932e49fb54b"
 
 SPOTIFY_AUTHORIZE_URL = "https://accounts.spotify.com/authorize"
 SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
