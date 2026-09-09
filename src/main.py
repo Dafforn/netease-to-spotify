@@ -1,3 +1,5 @@
+import time
+
 import requests
 
 from src.config import load_settings
@@ -9,6 +11,10 @@ from src.spotify import (
     replace_playlist_tracks,
     search_track,
 )
+
+
+# Throttle between songs to reduce 429s when sharing a public client_id.
+SEARCH_INTERVAL_SECONDS = 3.0
 
 
 def check_playlist(
@@ -74,7 +80,9 @@ def main() -> None:
     seen_track_ids = set()
 
     try:
-        for song in songs:
+        for song_index, song in enumerate(songs):
+            if song_index > 0:
+                time.sleep(SEARCH_INTERVAL_SECONDS)
             track_id = search_track(
                 access_token,
                 song["name"],

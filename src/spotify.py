@@ -27,7 +27,7 @@ SPOTIFY_API_URL = "https://api.spotify.com/v1"
 
 MAX_RETRIES = 3
 RETRY_DELAYS = [2, 5, 10]
-MAX_RETRY_AFTER_SECONDS = 15
+MAX_RETRY_AFTER_SECONDS = 90
 MUSICBRAINZ_URL = "https://musicbrainz.org/ws/2"
 MUSICBRAINZ_USER_AGENT = "netease-to-spotify/identity-fallback-v1"
 MUSICBRAINZ_REQUEST_INTERVAL = 1.1

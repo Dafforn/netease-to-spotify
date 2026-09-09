@@ -1,9 +1,14 @@
 import json
 import re
+import time
 
 from src.config import load_settings
 from src.netease import get_daily_recommendations
 from src.spotify import SpotifyRateLimitError, get_access_token, search_track
+
+
+# Throttle between songs to reduce 429s when sharing a public client_id.
+SEARCH_INTERVAL_SECONDS = 3.0
 
 
 def _is_japanese(value: str) -> bool:
@@ -26,7 +31,9 @@ def main() -> None:
     japanese_total = 0
     japanese_matched = 0
 
-    for song in songs:
+    for song_index, song in enumerate(songs):
+        if song_index > 0:
+            time.sleep(SEARCH_INTERVAL_SECONDS)
         japanese = _is_japanese(song["name"]) or any(
             _is_japanese(artist) for artist in song["artists"]
         )
