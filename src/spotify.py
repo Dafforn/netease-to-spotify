@@ -42,22 +42,16 @@ class SpotifyRateLimitError(RuntimeError):
 
 def get_access_token(
     client_id: str,
-    client_secret: str,
     refresh_token: str,
 ) -> str:
-    """Use the refresh token to get a new Spotify access token."""
-    credentials = f"{client_id}:{client_secret}".encode()
-    encoded_credentials = base64.b64encode(credentials).decode()
-
+    """Use the refresh token to get a new Spotify access token (PKCE public-client flow)."""
     response = requests.post(
         SPOTIFY_TOKEN_URL,
-        headers={
-            "Authorization": f"Basic {encoded_credentials}",
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
         data={
             "grant_type": "refresh_token",
             "refresh_token": refresh_token,
+            "client_id": client_id,
         },
         timeout=30,
     )

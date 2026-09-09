@@ -18,7 +18,6 @@ def main() -> None:
 
     access_token = get_access_token(
         settings.spotify_client_id,
-        settings.spotify_client_secret,
         settings.spotify_refresh_token,
     )
 

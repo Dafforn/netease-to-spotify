@@ -1,18 +1,28 @@
 #!/usr/bin/env python3
-"""Interactive helper for creating a Spotify refresh token locally."""
+"""Interactive helper for creating a Spotify refresh token locally (PKCE flow).
+
+Uses a public client_id from an established open-source Spotify client
+(ncspot / spotify-player, etc.) so that no client secret is required and
+the app-level Web API restrictions on newly-registered apps do not apply.
+"""
 
 import base64
-import getpass
+import hashlib
 import secrets
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests
 
 
+# Public client_id of an established open-source Spotify client.
+# Find one in e.g. https://github.com/hrkfdn/ncspot or
+# https://github.com/aome510/spotify-player (search "client_id").
+SPOTIFY_CLIENT_ID = "65b708073fc0480ea92a077233ca87bd"
+
 SPOTIFY_AUTHORIZE_URL = "https://accounts.spotify.com/authorize"
 SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
 SPOTIFY_SCOPE = "playlist-modify-private"
-REDIRECT_URI = "http://127.0.0.1:8888/callback"
+REDIRECT_URI = "http://127.0.0.1:8989/login"
 
 
 def playlist_id_from_input(value: str) -> str:
@@ -29,13 +39,15 @@ def playlist_id_from_input(value: str) -> str:
     return value
 
 
-def build_authorization_url(client_id: str, state: str) -> str:
+def build_authorization_url(state: str, code_challenge: str) -> str:
     params = {
-        "client_id": client_id,
+        "client_id": SPOTIFY_CLIENT_ID,
         "response_type": "code",
         "redirect_uri": REDIRECT_URI,
         "scope": SPOTIFY_SCOPE,
         "state": state,
+        "code_challenge_method": "S256",
+        "code_challenge": code_challenge,
     }
     return f"{SPOTIFY_AUTHORIZE_URL}?{urlencode(params)}"
 
@@ -53,20 +65,16 @@ def extract_callback_code(callback: str, expected_state: str) -> str:
     return code
 
 
-def exchange_code(client_id: str, client_secret: str, code: str) -> str:
-    credentials = base64.b64encode(
-        f"{client_id}:{client_secret}".encode("utf-8")
-    ).decode("ascii")
+def exchange_code(code: str, code_verifier: str) -> str:
     response = requests.post(
         SPOTIFY_TOKEN_URL,
-        headers={
-            "Authorization": f"Basic {credentials}",
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
         data={
             "grant_type": "authorization_code",
             "code": code,
             "redirect_uri": REDIRECT_URI,
+            "client_id": SPOTIFY_CLIENT_ID,
+            "code_verifier": code_verifier,
         },
         timeout=30,
     )
@@ -78,24 +86,35 @@ def exchange_code(client_id: str, client_secret: str, code: str) -> str:
 
 
 def main() -> None:
-    client_id = input("Spotify Client ID: ").strip()
-    client_secret = getpass.getpass("Spotify Client Secret: ").strip()
+    if "PASTE_" in SPOTIFY_CLIENT_ID:
+        raise SystemExit(
+            "Edit this file first: set SPOTIFY_CLIENT_ID to a public "
+            "client_id (e.g. from ncspot or spotify-player)."
+        )
+
     playlist_input = input("Spotify playlist URL or ID: ")
     playlist_id = playlist_id_from_input(playlist_input)
 
     state = secrets.token_urlsafe(24)
+    verifier = secrets.token_urlsafe(64)
+    challenge = base64.urlsafe_b64encode(
+        hashlib.sha256(verifier.encode()).digest()
+    ).rstrip(b"=").decode()
+
     print("\nOpen this URL in your browser:")
-    print(build_authorization_url(client_id, state))
+    print(build_authorization_url(state, challenge))
     callback = input("\nPaste the full callback URL: ")
-    refresh_token = exchange_code(client_id, client_secret, extract_callback_code(callback, state))
+    refresh_token = exchange_code(
+        extract_callback_code(callback, state), verifier
+    )
 
     print("\nSetup complete.")
     print("Add these values to GitHub Repository Secrets:")
-    print("SPOTIFY_CLIENT_ID=<your value>")
-    print("SPOTIFY_CLIENT_SECRET=[hidden]")
-    print("SPOTIFY_REFRESH_TOKEN=[hidden]")
+    print(f"SPOTIFY_CLIENT_ID={SPOTIFY_CLIENT_ID}")
+    print(f"SPOTIFY_REFRESH_TOKEN={refresh_token}")
     print(f"SPOTIFY_PLAYLIST_ID={playlist_id}")
     print("NETEASE_COOKIE=<add manually from your logged-in NetEase session>")
+    print("(SPOTIFY_CLIENT_SECRET is no longer needed; delete that secret.)")
 
 
 if __name__ == "__main__":
