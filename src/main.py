@@ -21,22 +21,37 @@ def check_playlist(
     access_token: str,
     playlist_id: str,
 ) -> None:
-    """Check whether the Spotify playlist can be accessed."""
+    """Check whether the Spotify playlist can be accessed (with 429 retry)."""
     url = f"https://api.spotify.com/v1/playlists/{playlist_id}"
 
     print("Checking Spotify playlist...")
 
-    response = requests.get(
-        url,
-        headers={
-            "Authorization": f"Bearer {access_token}",
-        },
-        timeout=30,
-    )
+    response = None
+    for attempt in range(5):
+        response = requests.get(
+            url,
+            headers={
+                "Authorization": f"Bearer {access_token}",
+            },
+            timeout=30,
+        )
 
-    print(f"Playlist check status: {response.status_code}")
+        print(f"Playlist check status: {response.status_code}")
 
-    if response.status_code != 200:
+        if response.status_code == 429:
+            retry_after = response.headers.get("Retry-After", "30")
+            try:
+                wait_seconds = int(retry_after)
+            except ValueError:
+                wait_seconds = 30
+            wait_seconds = min(wait_seconds, 120)
+            print(f"Rate limited on playlist check. Waiting {wait_seconds}s...")
+            time.sleep(wait_seconds)
+            continue
+
+        break
+
+    if response is None or response.status_code != 200:
         print("Playlist check response:")
         print(response.text)
 
