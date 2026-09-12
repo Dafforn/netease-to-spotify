@@ -4,7 +4,8 @@ name: Sync NetEase Daily Recommendations
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 22 * * *"
+    - cron: "37 21 * * *"
+    - cron: "13 11 * * *"
 
 jobs:
   sync:
