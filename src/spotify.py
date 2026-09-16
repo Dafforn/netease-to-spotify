@@ -945,19 +945,42 @@ def search_track(
     )
     return item.get("id")
 
+def _request_with_rate_limit_retry(method: str, url: str, headers: dict, max_attempts: int = 6, **kwargs):
+    """Send a playlist-write request, retrying on 429 per Retry-After."""
+    response = None
+    for attempt in range(max_attempts):
+        response = requests.request(method, url, headers=headers, timeout=30, **kwargs)
+
+        if response.status_code != 429:
+            return response
+
+        retry_after = response.headers.get("Retry-After", "30")
+        try:
+            wait_seconds = int(retry_after)
+        except ValueError:
+            wait_seconds = 30
+        wait_seconds = min(wait_seconds, 120)
+        print(
+            f"Rate limited on playlist write (attempt {attempt + 1}/{max_attempts}). "
+            f"Waiting {wait_seconds}s..."
+        )
+        time.sleep(wait_seconds)
+
+    return response
+
 def replace_playlist_tracks(
     access_token: str,
     playlist_id: str,
 ) -> None:
     """Remove all existing tracks using Spotify's playlist replace endpoint."""
-    response = requests.put(
+    response = _request_with_rate_limit_retry(
+        "PUT",
         f"{SPOTIFY_API_URL}/playlists/{playlist_id}/items",
         headers={
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json",
         },
         json={"uris": []},
-        timeout=30,
     )
 
     print("Spotify playlist clear status:", response.status_code)
@@ -970,7 +993,7 @@ def add_tracks_to_playlist(
     playlist_id: str,
     track_ids: list[str],
 ) -> None:
-    """Add all tracks to a Spotify playlist in batches of 100."""
+    """Add all tracks to a Spotify playlist in batches of 100 (with 429 retry)."""
 
     if not track_ids:
         print("No tracks to add.")
@@ -989,7 +1012,8 @@ def add_tracks_to_playlist(
             f"to Spotify playlist..."
         )
 
-        response = requests.post(
+        response = _request_with_rate_limit_retry(
+            "POST",
             f"{SPOTIFY_API_URL}/playlists/{playlist_id}/items",
             headers={
                 "Authorization": f"Bearer {access_token}",
@@ -998,7 +1022,6 @@ def add_tracks_to_playlist(
             json={
                 "uris": batch,
             },
-            timeout=30,
         )
 
         print("Spotify response status:", response.status_code)
